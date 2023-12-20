@@ -1,0 +1,6 @@
+filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
+filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
+github.com/coniks-sys/coniks-go v0.0.0-20180722014011-11acf4819b71 h1:MFLTqgfJclmtaQ1SRUrWwmDX/1UBok3XWUethkJ2swQ=
+github.com/coniks-sys/coniks-go v0.0.0-20180722014011-11acf4819b71/go.mod h1:TrHYHH4Wze7v7Hkwu1MH1W+mCPQKM+gs+PicdEV14o8=
+golang.org/x/crypto v0.17.0 h1:r8bRNjWL3GshPW3gkd+RpvzWrZAwPS49OmTGZ/uhM4k=
+golang.org/x/crypto v0.17.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
