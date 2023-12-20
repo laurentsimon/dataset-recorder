@@ -25,8 +25,8 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
-	"github.com/laurentsimon/vrf-tests/pkg/internal/ed25519/edwards25519"
-	"github.com/laurentsimon/vrf-tests/pkg/internal/ed25519/extra25519"
+	"github.com/laurentsimon/dataset-recorder/pkg/internal/crypto/ed25519/edwards25519"
+	"github.com/laurentsimon/dataset-recorder/pkg/internal/crypto/ed25519/extra25519"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -69,9 +69,12 @@ func GenerateKey(rnd io.Reader) (sk PrivateKey, err error) {
 
 // Public extracts the public VRF key from the underlying private-key
 // and returns a boolean indicating if the operation was successful.
-func (sk PrivateKey) Public() (PublicKey, bool) {
+func (sk PrivateKey) Public() (PublicKey, error) {
 	pk, ok := ed25519.PrivateKey(sk).Public().(ed25519.PublicKey)
-	return PublicKey(pk), ok
+	if !ok {
+		return nil, ErrGetPubKey
+	}
+	return PublicKey(pk), nil
 }
 
 func (sk PrivateKey) expandSecret() (x, skhr *[32]byte) {
