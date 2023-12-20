@@ -37,8 +37,6 @@ type MerkleTree struct {
 	dirty bool
 }
 
-//var nn = []byte{4, 170, 250, 115, 151, 197, 76, 139, 180, 184, 237, 114, 108, 193, 84, 208, 157, 115, 88, 103, 185, 198, 249, 157, 6, 196, 140, 43, 235, 105, 89, 22}
-
 // NewEmpty returns an empty Merkle prefix tree
 // with a secure random nonce. The tree root is an interior node
 // and its children are two empty leaf nodes.
@@ -69,14 +67,12 @@ func (m *MerkleTree) WriteInternal(writer io.WriteCloser) error {
 }
 
 func (m *MerkleTree) computeHash() {
-	// TODO: lazy hash computation.
-	//var h []byte
-	// if !m.dirty {
-	// 	var h []byte
-	// 	copy(h, m.hash)
-	// 	return h
-	// }
+	// Only recompute the hash if it's dirty.
+	if !m.dirty {
+		return
+	}
 	m.hash = m.root.hash(m)
+	m.dirty = false
 	encodedStr := base64.StdEncoding.EncodeToString([]byte(m.hash))
 	fmt.Printf("Hash: %v\n", encodedStr)
 }

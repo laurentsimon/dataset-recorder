@@ -36,9 +36,9 @@ func TestConvertPrivateKeyToPublicKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pk, ok := sk.Public()
-	if !ok {
-		t.Fatal("Couldn't obtain public key.")
+	pk, err := sk.Public()
+	if err != nil {
+		t.Fatalf("Couldn't obtain public key: %v", err)
 	}
 	if !bytes.Equal(sk[32:], pk) {
 		t.Fatal("Raw byte respresentation doesn't match public key.")
