@@ -59,6 +59,7 @@ func NewEmpty() (*MerkleTree, error) {
 // NewFromReader loads a tree from a reader.
 func NewFromReader(reader io.Reader) (*MerkleTree, error) {
 	m := new(MerkleTree)
+	// Set tree as dirty because the hash is not computed.
 	m.dirty = true
 	// Read the nonce.
 	m.nonce = make([]byte, crypto.HashSizeByte)

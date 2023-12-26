@@ -16,7 +16,6 @@ const (
 // Digest hashes all passed byte slices.
 // The passed slices won't be mutated.
 func Digest(ms ...[]byte) []byte {
-	//return []byte("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD")
 	h := sha3.NewShake128()
 	for _, m := range ms {
 		h.Write(m)
@@ -36,7 +35,6 @@ func Digest(ms ...[]byte) []byte {
 // as unpredictable as desired).
 // See https://trac.torproject.org/projects/tor/ticket/17694
 func MakeRand() ([]byte, error) {
-	//return []byte("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"), nil
 	r := make([]byte, HashSizeByte)
 	if _, err := rand.Read(r); err != nil {
 		return nil, err
