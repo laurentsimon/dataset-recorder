@@ -2,7 +2,6 @@ package pad
 
 import (
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/laurentsimon/dataset-recorder/pkg/internal/crypto"
@@ -44,12 +43,19 @@ func NewEmpty(vrfKey vrf.PrivateKey) (*PAD, error) {
 }
 
 // Load a pad from a reader and vrf private key.
-func NewFromReader(reader io.ReadCloser, vrfKey vrf.PrivateKey) (*PAD, error) {
-	return nil, nil
+func NewFromReader(reader io.Reader, vrfKey vrf.PrivateKey) (*PAD, error) {
+	var err error
+	pad := new(PAD)
+	pad.vrfKey = vrfKey
+	pad.tree, err = merkletree.NewFromReader(reader)
+	if err != nil {
+		return nil, err
+	}
+	return pad, nil
 }
 
 // WriteInternal saves a pad to a writer.
-func (pad *PAD) WriteInternal(writer io.WriteCloser) error {
+func (pad *PAD) WriteInternal(writer io.Writer) error {
 	// NOTE: We do not save the key.
 	return pad.tree.WriteInternal(writer)
 }
@@ -95,7 +101,6 @@ func (pad *PAD) Index(key []byte) []byte {
 // and inserts it into the PAD's underlying Merkle tree. This ensures
 // the index-to-value binding will be included in the next PAD snapshot.
 func (pad *PAD) Insert(key, value []byte) error {
-	fmt.Printf("Adding value: %v, %v\n", string(key), string(value))
 	return pad.tree.Set(pad.Index(key), []byte(key), value)
 }
 

@@ -33,12 +33,32 @@ func ULongToBytes(num uint64) []byte {
 	return LongToBytes(int64(num))
 }
 
+func BytesToLong(b []byte) int64 {
+	return int64(BytesToULong(b))
+}
+
+func BytesToULong(b []byte) uint64 {
+	return binary.LittleEndian.Uint64(b)
+}
+
 // UInt32ToBytes converts an uint32 variable to byte array
 // in little endian format.
 func UInt32ToBytes(num uint32) []byte {
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, num)
 	return buf
+}
+
+func Int32ToBytes(num int32) []byte {
+	return UInt32ToBytes(uint32(num))
+}
+
+func BytesToInt32(b []byte) int32 {
+	return int32(BytesToUInt32(b))
+}
+
+func BytesToUInt32(b []byte) uint32 {
+	return binary.LittleEndian.Uint32(b)
 }
 
 // WriteFile writes buf to a file whose path is indicated by filename.

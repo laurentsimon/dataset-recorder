@@ -2,6 +2,7 @@ package pad
 
 import (
 	//"bytes"
+	"bytes"
 	"strconv"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"io"
 
 	"github.com/laurentsimon/dataset-recorder/pkg/internal/crypto/vrf"
+	"github.com/laurentsimon/dataset-recorder/pkg/internal/merkletree"
 )
 
 var vrfKey vrf.PrivateKey
@@ -132,7 +134,6 @@ func benchPADGet(b *testing.B, entries uint64) {
 	}
 	// ignore the tree creation:
 	b.ResetTimer()
-	//fmt.Println("Done creating large pad/tree.")
 
 	// measure Gets in large tree (with NumEntries leafs)
 	for n := 0; n < b.N; n++ {
@@ -173,4 +174,112 @@ func createPad(N uint64, keyPrefix string, valuePrefix []byte) (*PAD, error) {
 		}
 	}
 	return pad, nil
+}
+
+func TestNewFromReader(t *testing.T) {
+	keyPrefix := "key"
+	valuePrefix := []byte("value")
+	entries := uint64(10)
+	var i uint64
+	// Create pad1.
+	pad1, err := NewEmpty(vrfKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Insert entries.
+	for i = 0; i < entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		value := append(valuePrefix, byte(i))
+		if err := pad1.Insert([]byte(key), value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Inclusion proofs.
+	for i = 0; i < entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		value := append(valuePrefix, byte(i))
+		ap, err := pad1.Get([]byte(key))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ap.pathProof.ProofType() != merkletree.ProofOfInclusion {
+			t.Errorf("not a proof of inclusion: %v", key)
+		}
+		if ap.pathProof.Leaf.Value == nil {
+			t.Error("Cannot find key:", key)
+			return
+		}
+		if !bytes.Equal(ap.pathProof.Leaf.Value, value) {
+			t.Error(key, "value mismatch\n")
+		}
+	}
+	// Exclusion proofs.
+	for i = entries + 1; i < 2*entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		ap, err := pad1.Get([]byte(key))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ap.pathProof.ProofType() != merkletree.ProofOfExclusion {
+			t.Errorf("not a proof of inclusion: %v", key)
+		}
+		if ap.pathProof.Leaf.Value != nil {
+			t.Error("Found key:", key)
+			return
+		}
+	}
+	// Save pad1.
+	var b1 bytes.Buffer
+	var cpyb1 bytes.Buffer
+	if err := pad1.WriteInternal(&b1); err != nil {
+		t.Fatal(err)
+	}
+	cpyb1.Write(b1.Bytes())
+	// Create a new pad from b1.
+	pad2, err := NewFromReader(&b1, vrfKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Save pad2.
+	var b2 bytes.Buffer
+	if err := pad2.WriteInternal(&b2); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(cpyb1.Bytes(), b2.Bytes()) {
+		t.Errorf("pad mismatch %v / %v", cpyb1.Bytes(), b2.Bytes())
+	}
+	// Inclusion proofs.
+	for i = 0; i < entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		value := append(valuePrefix, byte(i))
+		ap, err := pad2.Get([]byte(key))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ap.pathProof.ProofType() != merkletree.ProofOfInclusion {
+			t.Errorf("not a proof of inclusion: %v", key)
+		}
+		if ap.pathProof.Leaf.Value == nil {
+			t.Error("Cannot find key:", key)
+			return
+		}
+		if !bytes.Equal(ap.pathProof.Leaf.Value, value) {
+			t.Error(key, "value mismatch\n")
+		}
+	}
+	// Exclusion proofs.
+	for i = entries + 1; i < 2*entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		ap, err := pad2.Get([]byte(key))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ap.pathProof.ProofType() != merkletree.ProofOfExclusion {
+			t.Errorf("not a proof of inclusion: %v", key)
+		}
+		if ap.pathProof.Leaf.Value != nil {
+			t.Error("Found key:", key)
+			return
+		}
+	}
 }

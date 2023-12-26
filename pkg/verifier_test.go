@@ -2,9 +2,10 @@ package pkg
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/laurentsimon/dataset-recorder/pkg/internal/merkletree"
-	"testing"
 )
 
 func Test_VerifyInclusion(t *testing.T) {
@@ -38,10 +39,9 @@ func Test_VerifyInclusion(t *testing.T) {
 			t.Fatalf("unexpected err (-want +got): \n%s", diff)
 		}
 	}
-	// Finalize the recorder.
-	r.Finalize()
 
-	// Now create the prover and verifier
+	// Now create the prover and verifier.
+	// The prover is created from the non-serialized recorder.
 	p, err := newProverFromRecorder(r)
 	if err != nil {
 		t.Fatalf("cannot create prover: %v", err)
@@ -98,8 +98,6 @@ func Test_VerifyExclusion(t *testing.T) {
 			t.Fatalf("unexpected err (-want +got): \n%s", diff)
 		}
 	}
-	// Finalize the recorder.
-	r.Finalize()
 
 	// Now create the prover and verifier
 	p, err := newProverFromRecorder(r)

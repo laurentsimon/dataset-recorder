@@ -2,6 +2,7 @@ package merkletree
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/laurentsimon/dataset-recorder/pkg/internal/crypto"
@@ -299,5 +300,106 @@ func TestTreeClone(t *testing.T) {
 	}
 	if !bytes.Equal(ap.Leaf.Value, []byte("value2")) {
 		t.Error(key2, "value mismatch\n")
+	}
+}
+
+func TestNewFromReader(t *testing.T) {
+	keyPrefix := "key"
+	valuePrefix := []byte("value")
+	entries := uint64(10)
+	var i uint64
+	// Create m1 tree.
+	m1, err := NewEmpty()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Insert entries.
+	for i = 0; i < entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		value := append(valuePrefix, byte(i))
+		index := staticVRFKey.Compute([]byte(key))
+		if err := m1.Set(index, []byte(key), value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Inclusion proofs.
+	for i = 0; i < entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		value := append(valuePrefix, byte(i))
+		index := staticVRFKey.Compute([]byte(key))
+		ap, err := m1.Get(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ap.Leaf.Value == nil {
+			t.Error("Cannot find key:", key)
+			return
+		}
+		if !bytes.Equal(ap.Leaf.Value, value) {
+			t.Error(key, "value mismatch\n")
+		}
+	}
+	// Exclusion proofs.
+	for i = entries + 1; i < 2*entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		index := staticVRFKey.Compute([]byte(key))
+		ap, err := m1.Get(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ap.Leaf.Value != nil {
+			t.Error("Found key:", key)
+			return
+		}
+	}
+	// Save the tree.
+	var b1 bytes.Buffer
+	var cpyb1 bytes.Buffer
+	if err := m1.WriteInternal(&b1); err != nil {
+		t.Fatal(err)
+	}
+	cpyb1.Write(b1.Bytes())
+	// Create a new tree from b1.
+	m2, err := NewFromReader(&b1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Save the tree.
+	var b2 bytes.Buffer
+	if err := m2.WriteInternal(&b2); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(cpyb1.Bytes(), b2.Bytes()) {
+		t.Errorf("tree mismatch %v / %v", cpyb1.Bytes(), b2.Bytes())
+	}
+	// Inclusion proofs.
+	for i = 0; i < entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		value := append(valuePrefix, byte(i))
+		index := staticVRFKey.Compute([]byte(key))
+		ap, err := m2.Get(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ap.Leaf.Value == nil {
+			t.Error("Cannot find key:", key)
+			return
+		}
+		if !bytes.Equal(ap.Leaf.Value, value) {
+			t.Error(key, "value mismatch\n")
+		}
+	}
+	// Exclusion proofs.
+	for i = entries + 1; i < 2*entries; i++ {
+		key := keyPrefix + fmt.Sprint(i)
+		index := staticVRFKey.Compute([]byte(key))
+		ap, err := m2.Get(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ap.Leaf.Value != nil {
+			t.Error("Found key:", key)
+			return
+		}
 	}
 }

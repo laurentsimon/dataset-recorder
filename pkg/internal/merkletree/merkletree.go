@@ -2,7 +2,6 @@ package merkletree
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +14,10 @@ var (
 	// ErrInvalidTree indicates a panic due to
 	// a malformed operation on the tree.
 	ErrInvalidTree = errors.New("[merkletree] Invalid tree")
+	// ErrInvalidWrite a problem to serialize.
+	ErrInvalidWrite = errors.New("[merkletree] Invalid write")
+	// ErrInvalidRead a problem to deserialize.
+	ErrInvalidRead = errors.New("[merkletree] Invalid read")
 )
 
 const (
@@ -54,16 +57,63 @@ func NewEmpty() (*MerkleTree, error) {
 }
 
 // NewFromReader loads a tree from a reader.
-func NewFromReader(reader io.ReadCloser) (*MerkleTree, error) {
-	// TODO: use the root hash to verify the load is correct.
-	return nil, nil
+func NewFromReader(reader io.Reader) (*MerkleTree, error) {
+	m := new(MerkleTree)
+	m.dirty = true
+	// Read the nonce.
+	m.nonce = make([]byte, crypto.HashSizeByte)
+	n, err := reader.Read(m.nonce)
+	if err != nil {
+		return nil, err
+	}
+	if n != crypto.HashSizeByte {
+		return nil, fmt.Errorf("%w: expected %d, got %d", ErrInvalidWrite, crypto.HashSizeByte, n)
+	}
+	// Read the hash.
+	hash := make([]byte, crypto.HashSizeByte)
+	n, err = reader.Read(hash)
+	if err != nil {
+		return nil, err
+	}
+	if n != crypto.HashSizeByte {
+		return nil, fmt.Errorf("%w: expected %d, got %d", ErrInvalidWrite, crypto.HashSizeByte, n)
+	}
+	// Read the tree.
+	m.root, err = readInteriorNode(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute the hash and compare to the read value.
+	computedHash := m.Hash()
+	if !bytes.Equal(hash, computedHash) {
+		return nil, fmt.Errorf("%w: computed hash and stored hash mismatch", ErrInvalidRead)
+	}
+	return m, nil
 }
 
 // WriteInternal saves the tree to a writer.
-func (m *MerkleTree) WriteInternal(writer io.WriteCloser) error {
+func (m *MerkleTree) WriteInternal(writer io.Writer) error {
 	// https://medium.com/@lukuoyu/leetcode-297-serialize-and-deserialize-binary-tree-tree-hard-23e158914772
-	// Need to save the nonce, hash (for load verification) and the leaves.
-	return nil
+	// First, make sure the hash is update to date.
+	m.computeHash()
+	// Write the nonce.
+	n, err := writer.Write(m.nonce)
+	if err != nil {
+		return err
+	}
+	if n != len(m.nonce) {
+		return fmt.Errorf("%w: expected %d, got %d", ErrInvalidWrite, len(m.nonce), n)
+	}
+	// Write the hash.
+	n, err = writer.Write(m.hash)
+	if err != nil {
+		return err
+	}
+	if n != len(m.hash) {
+		return fmt.Errorf("%w: expected %d, got %d", ErrInvalidWrite, len(m.hash), n)
+	}
+	return nodeWrite(m, m.root, writer)
 }
 
 func (m *MerkleTree) computeHash() {
@@ -73,8 +123,6 @@ func (m *MerkleTree) computeHash() {
 	}
 	m.hash = m.root.hash(m)
 	m.dirty = false
-	encodedStr := base64.StdEncoding.EncodeToString([]byte(m.hash))
-	fmt.Printf("Hash: %v\n", encodedStr)
 }
 
 // Hash returns the hash of the root of the tree.
@@ -173,7 +221,6 @@ func (m *MerkleTree) Set(index []byte, key, value []byte) error {
 		return err
 	}
 	toAdd := userLeafNode{
-		key:        append([]byte{}, key...),   // make a copy of key
 		value:      append([]byte{}, value...), // make a copy of value
 		index:      index,
 		commitment: commitment,

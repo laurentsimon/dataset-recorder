@@ -1,22 +1,24 @@
 package pkg
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/laurentsimon/dataset-recorder/pkg/internal/crypto/vrf"
 	"github.com/laurentsimon/dataset-recorder/pkg/internal/pad"
 )
 
-var (
-	// ErrFinalized indicates the tree is fanialized.
-	ErrFinalized = errors.New("[recorder] Finalized recorder")
-)
-
 type Recorder struct {
-	p     *pad.PAD
-	final bool
+	p *pad.PAD
 }
+
+const version = 0x01
+
+var (
+	ErrInvalidVersion = errors.New("invalid version")
+)
 
 func NewEmptyRecorder(rnd io.Reader) (*Recorder, error) {
 	vrfKey, err := vrf.GenerateKey(rnd)
@@ -32,8 +34,11 @@ func NewEmptyRecorder(rnd io.Reader) (*Recorder, error) {
 	}, nil
 }
 
-func NewRecorderFromReader(reader io.ReadCloser, vrfKey []byte) (*Recorder, error) {
-	p, err := pad.NewFromReader(reader, vrf.PrivateKey(vrfKey))
+func NewRecorderFromReader(reader io.Reader, private []byte) (*Recorder, error) {
+	if err := validateVersion(reader); err != nil {
+		return nil, err
+	}
+	p, err := pad.NewFromReader(reader, vrf.PrivateKey(private))
 	if err != nil {
 		return nil, err
 	}
@@ -42,19 +47,24 @@ func NewRecorderFromReader(reader io.ReadCloser, vrfKey []byte) (*Recorder, erro
 	}, nil
 }
 
-// Insert inserts data.
-func (r *Recorder) Insert(key, value []byte) error {
-	if r.final {
-		return ErrFinalized
+func validateVersion(reader io.Reader) error {
+	versionBytes := make([]byte, 1)
+	n, err := reader.Read(versionBytes)
+	if err != nil {
+		return err
 	}
-	return r.p.Insert(key, value)
+	if n != 1 {
+		return fmt.Errorf("wrote %d bytes, expected %d", n, 1)
+	}
+	if !bytes.Equal([]byte{version}, versionBytes) {
+		return fmt.Errorf("%w: version not supported (%v)", ErrInvalidVersion, versionBytes)
+	}
+	return nil
 }
 
-// Finalize the pad.
-func (r *Recorder) Finalize() {
-	// Force computation of the hashes in the tree.
-	_ = r.p.Hash()
-	r.final = true
+// Insert inserts data.
+func (r *Recorder) Insert(key, value []byte) error {
+	return r.p.Insert(key, value)
 }
 
 // get gets a proof for a key. Only used for testing
@@ -70,12 +80,19 @@ func (r *Recorder) get(key []byte) (*Proof, error) {
 }
 
 // WriteInternal stores internal state of the recorder.
-func (r *Recorder) WriteInternal(writer io.WriteCloser) error {
+func (r *Recorder) WriteInternal(writer io.Writer) error {
+	n, err := writer.Write([]byte{version})
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return fmt.Errorf("wrote %d bytes, expected %d", n, 1)
+	}
 	return r.p.WriteInternal(writer)
 }
 
-// private returns private keys.
-func (r *Recorder) private() []byte {
+// Private returns private keys.
+func (r *Recorder) Private() []byte {
 	return r.p.Private()
 }
 
